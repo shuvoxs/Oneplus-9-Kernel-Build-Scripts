@@ -34,7 +34,7 @@ jobs:
           cd "$KERNEL_DIR"
           curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -
 
-      - name: Fix pgtable.h compatibility for kernel 5.4
+      - name: Apply kernel 5.4 compatibility fixes
         run: |
           source build/env.sh
           mkdir -p "$KERNEL_DIR/include/linux"
@@ -44,6 +44,8 @@ jobs:
           #include <asm/pgtable.h>
           #endif
           EOF
+          sed -i 's/strncpy_from_user_nofault/strncpy_from_unsafe_user/g' \
+            "$KERNEL_DIR/drivers/kernelsu/feature/sucompat.c"
 
       - name: Copy defconfig
         run: |
@@ -105,34 +107,3 @@ jobs:
           do.cleanuponabort=0
           device.name1=OnePlus9
           device.name2=lemonade
-          supported.versions=
-          supported.patchlevels=
-          '; }
-          block=boot;
-          is_slot_device=1;
-          ramdisk_compression=auto;
-          patch_vbmeta_flag=0;
-          . tools/ak3-core.sh
-          dump_boot
-          write_boot
-          ANYKERNEL_EOF
-          cd AK3
-          zip -r9 ../OnePlus9-KSUNext-$(date +%Y%m%d).zip * -x ".git*"
-
-      - name: Upload flashable zip
-        uses: actions/upload-artifact@v4
-        with:
-          name: flashable-zip
-          path: OnePlus9-KSUNext-*.zip
-
-      - name: Upload vmlinux
-        uses: actions/upload-artifact@v4
-        with:
-          name: vmlinux
-          path: build/out/vmlinux
-
-      - name: Upload modules squashfs
-        uses: actions/upload-artifact@v4
-        with:
-          name: modules
-          path: modules.squashfs
