@@ -1,10 +1,10 @@
-name: Build Kernel
+name: Build Kernel with KernelSU-Next
 
 on:
   workflow_dispatch:
     inputs:
       config_url:
-        description: '.config 文件的 Gist raw URL（可选，留空使用 oneplus9_defconfig）'
+        description: '.config Gist raw URL (optional)'
         required: false
         type: string
 
@@ -20,7 +20,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             bc bison cpio flex libelf-dev libssl-dev \
-            make rsync squashfs-tools unzip wget xz-utils \
+            make rsync squashfs-tools unzip wget xz-utils zip \
             clang-18 lld-18 llvm-18 \
             binutils-aarch64-linux-gnu
 
@@ -28,18 +28,34 @@ jobs:
         run: |
           python3 create_oneplus_build.py --download --llvm=18 build
 
+      - name: Setup KernelSU-Next
+        run: |
+          source build/env.sh
+          cd "$KERNEL_DIR"
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+
       - name: Copy defconfig
         run: |
           mkdir -p build/out
           if [ -n "$CONFIG_URL" ]; then
-            echo "Downloading config from provided URL"
             wget -q -O build/out/.config "$CONFIG_URL"
           else
-            echo "Using oneplus9_defconfig from repo"
             cp oneplus9_defconfig build/out/.config
           fi
         env:
           CONFIG_URL: ${{ github.event.inputs.config_url }}
+
+      - name: Enable KernelSU-Next config options
+        run: |
+          cat >> build/out/.config << 'EOF'
+          CONFIG_KSU=y
+          CONFIG_KPROBES=y
+          CONFIG_HAVE_KPROBES=y
+          CONFIG_KPROBE_EVENTS=y
+          CONFIG_OVERLAY_FS=y
+          CONFIG_TMPFS_XATTR=y
+          CONFIG_TMPFS_POSIX_ACL=y
+          EOF
 
       - name: olddefconfig
         run: |
@@ -62,17 +78,47 @@ jobs:
           mksquashfs build/modules modules.squashfs \
             -comp xz -b 1M -Xbcj arm,armthumb -Xdict-size 1M -noappend
 
+      - name: Package AnyKernel3 flashable zip
+        run: |
+          source build/env.sh
+          git clone https://github.com/osm0sis/AnyKernel3 --depth=1 AK3
+          rm -rf AK3/.git AK3/models AK3/ramdisk AK3/README.md
+          cp "$OUT_DIR"/arch/arm64/boot/Image.gz AK3/Image.gz
+          cat > AK3/anykernel.sh << 'ANYKERNEL_EOF'
+          properties() { '
+          kernel.string=KSU-Next Kernel for OnePlus 9
+          do.devicecheck=1
+          do.modules=0
+          do.systemless=1
+          do.cleanup=1
+          do.cleanuponabort=0
+          device.name1=OnePlus9
+          device.name2=lemonade
+          supported.versions=
+          supported.patchlevels=
+          '; }
+          block=boot;
+          is_slot_device=1;
+          ramdisk_compression=auto;
+          patch_vbmeta_flag=0;
+          . tools/ak3-core.sh
+          dump_boot
+          write_boot
+          ANYKERNEL_EOF
+          cd AK3
+          zip -r9 ../OnePlus9-KSUNext-$(date +%Y%m%d).zip * -x ".git*"
+
+      - name: Upload flashable zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: flashable-zip
+          path: OnePlus9-KSUNext-*.zip
+
       - name: Upload vmlinux
         uses: actions/upload-artifact@v4
         with:
           name: vmlinux
           path: build/out/vmlinux
-
-      - name: Upload Image
-        uses: actions/upload-artifact@v4
-        with:
-          name: Image
-          path: build/out/arch/arm64/boot/Image*
 
       - name: Upload modules squashfs
         uses: actions/upload-artifact@v4
