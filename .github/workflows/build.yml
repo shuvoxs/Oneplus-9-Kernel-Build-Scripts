@@ -34,6 +34,17 @@ jobs:
           cd "$KERNEL_DIR"
           curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -
 
+      - name: Fix pgtable.h compatibility for kernel 5.4
+        run: |
+          source build/env.sh
+          mkdir -p "$KERNEL_DIR/include/linux"
+          cat > "$KERNEL_DIR/include/linux/pgtable.h" << 'EOF'
+          #ifndef _CUSTOM_LINUX_PGTABLE_H
+          #define _CUSTOM_LINUX_PGTABLE_H
+          #include <asm/pgtable.h>
+          #endif
+          EOF
+
       - name: Copy defconfig
         run: |
           mkdir -p build/out
