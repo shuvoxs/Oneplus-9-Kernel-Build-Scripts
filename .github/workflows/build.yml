@@ -48,6 +48,14 @@ jobs:
             "$KERNEL_DIR/drivers/kernelsu/feature/sucompat.c"
           sed -i 's/copy_to_kernel_nofault/probe_kernel_write/g' \
             "$KERNEL_DIR/drivers/kernelsu/hook/arm64/patch_memory.c"
+          cat > "$KERNEL_DIR/include/linux/ksu_compat.h" << 'EOF'
+          #ifndef _KSU_COMPAT_H
+          #define _KSU_COMPAT_H
+          #define security_inode_init_security_anon(...) 0
+          #endif
+          EOF
+          sed -i '1i #include <linux/ksu_compat.h>' \
+            "$KERNEL_DIR/drivers/kernelsu/infra/file_wrapper.c"
 
       - name: Copy defconfig
         run: |
