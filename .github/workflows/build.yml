@@ -52,10 +52,13 @@ jobs:
           #ifndef _KSU_COMPAT_H
           #define _KSU_COMPAT_H
           #define security_inode_init_security_anon(...) 0
+          #define SECCOMP_ARCH_NATIVE_NR NR_syscalls
           #endif
           EOF
           sed -i '1i #include <linux/ksu_compat.h>' \
             "$KERNEL_DIR/drivers/kernelsu/infra/file_wrapper.c"
+          sed -i '1i #include <linux/ksu_compat.h>' \
+            "$KERNEL_DIR/drivers/kernelsu/infra/seccomp_cache.c"
 
       - name: Copy defconfig
         run: |
