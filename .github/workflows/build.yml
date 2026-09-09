@@ -32,22 +32,7 @@ jobs:
         run: |
           source build/env.sh
           cd "$KERNEL_DIR"
-          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -
-
-      - name: Apply kernel 5.4 compatibility fixes
-        run: |
-          source build/env.sh
-          mkdir -p "$KERNEL_DIR/include/linux"
-          cat > "$KERNEL_DIR/include/linux/pgtable.h" << 'EOF'
-          #ifndef _CUSTOM_LINUX_PGTABLE_H
-          #define _CUSTOM_LINUX_PGTABLE_H
-          #include <asm/pgtable.h>
-          #endif
-          EOF
-          sed -i 's/strncpy_from_user_nofault/strncpy_from_unsafe_user/g' \
-            "$KERNEL_DIR/drivers/kernelsu/feature/sucompat.c"
-          sed -i 's/copy_to_kernel_nofault/probe_kernel_write/g' \
-            "$KERNEL_DIR/drivers/kernelsu/hook/arm64/patch_memory.c"
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
 
       - name: Copy defconfig
         run: |
